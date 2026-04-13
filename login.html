@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | PistaPadel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">PistaPadel</div>
+    <nav>
+      <a href="index.html">Inicio</a>
+      <a href="courts.html">Pistas</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="card auth-card">
+      <h1>Acceso a la aplicación</h1>
+      <p class="muted">Inicia sesión o crea tu cuenta</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" id="tabLogin">Iniciar sesión</button>
+        <button class="tab-btn" id="tabRegister">Registrarse</button>
+      </div>
+
+      <div id="messageBox" class="message" style="display:none;"></div>
+
+      <!-- LOGIN -->
+      <form id="loginForm" class="form-section">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" required />
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Contraseña</label>
+          <input type="password" id="loginPassword" required />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Entrar</button>
+      </form>
+
+      <!-- REGISTER -->
+      <form id="registerForm" class="form-section" style="display:none;">
+        <div class="form-group">
+          <label for="registerNombre">Nombre</label>
+          <input type="text" id="registerNombre" required />
+        </div>
+
+        <div class="form-group">
+          <label for="registerApellidos">Apellidos</label>
+          <input type="text" id="registerApellidos" required />
+        </div>
+
+        <div class="form-group">
+          <label for="registerEmail">Email</label>
+          <input type="email" id="registerEmail" required />
+        </div>
+
+        <div class="form-group">
+          <label for="registerPassword">Contraseña</label>
+          <input type="password" id="registerPassword" required />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Crear cuenta</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = "http://localhost:8080/pistaPadel";
+
+    const tabLogin = document.getElementById("tabLogin");
+    const tabRegister = document.getElementById("tabRegister");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const messageBox = document.getElementById("messageBox");
+
+    function showMessage(text, type = "info") {
+      messageBox.style.display = "block";
+      messageBox.textContent = text;
+      messageBox.className = `message ${type}`;
+    }
+
+    function hideMessage() {
+      messageBox.style.display = "none";
+      messageBox.textContent = "";
+      messageBox.className = "message";
+    }
+
+    function getBasicAuth(email, password) {
+      return "Basic " + btoa(`${email}:${password}`);
+    }
+
+    function switchToLogin() {
+      tabLogin.classList.add("active");
+      tabRegister.classList.remove("active");
+      loginForm.style.display = "block";
+      registerForm.style.display = "none";
+      hideMessage();
+    }
+
+    function switchToRegister() {
+      tabRegister.classList.add("active");
+      tabLogin.classList.remove("active");
+      registerForm.style.display = "block";
+      loginForm.style.display = "none";
+      hideMessage();
+    }
+
+    tabLogin.addEventListener("click", switchToLogin);
+    tabRegister.addEventListener("click", switchToRegister);
+
+    // REGISTRO
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideMessage();
+
+      const body = {
+        nombre: document.getElementById("registerNombre").value.trim(),
+        apellidos: document.getElementById("registerApellidos").value.trim(),
+        email: document.getElementById("registerEmail").value.trim(),
+        password: document.getElementById("registerPassword").value
+      };
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Error al registrarse");
+        }
+
+        showMessage("Usuario registrado correctamente. Ahora inicia sesión.", "success");
+        registerForm.reset();
+        switchToLogin();
+
+      } catch (error) {
+        showMessage(error.message, "error");
+      }
+    });
+
+    // LOGIN
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideMessage();
+
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      const authHeader = getBasicAuth(email, password);
+
+      try {
+        // 1. Validar credenciales con /auth/login
+        const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": authHeader
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (!loginResponse.ok) {
+          const errorText = await loginResponse.text();
+          throw new Error(errorText || "Credenciales incorrectas");
+        }
+
+        // 2. Obtener el usuario real con /auth/me
+        const meResponse = await fetch(`${API_BASE}/auth/me`, {
+          method: "GET",
+          headers: {
+            "Authorization": authHeader
+          }
+        });
+
+        if (!meResponse.ok) {
+          throw new Error("No se pudo recuperar el usuario autenticado");
+        }
+
+        const user = await meResponse.json();
+
+        // Guardar credenciales para futuras peticiones
+        localStorage.setItem("authEmail", email);
+        localStorage.setItem("authPassword", password);
+        localStorage.setItem("authHeader", authHeader);
+        localStorage.setItem("currentUser", JSON.stringify(user));
+
+        showMessage("Login correcto. Redirigiendo...", "success");
+
+        setTimeout(() => {
+          if (user.rol === "ADMIN") {
+            window.location.href = "admin.html";
+          } else {
+            window.location.href = "courts.html";
+          }
+        }, 700);
+
+      } catch (error) {
+        showMessage(error.message, "error");
+      }
+    });
+  </script>
+</body>
+</html>
