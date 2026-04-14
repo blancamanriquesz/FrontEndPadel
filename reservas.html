@@ -1,63 +1,170 @@
-<main class="page">
-    <div class="page-header">
-        <h1>Mis Reservas</h1>
-        <p>Listado de tus partidas programadas.</p>
-    </div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mis Reservas | PistaPádel</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
 
-    <div class="card">
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Hora</th>
-                    <th>Pista</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-                </thead>
-                <tbody id="tablaReservas"></tbody>
-            </table>
+<nav class="navbar">
+    <a href="index.html" class="nav-logo">Pista<span>Pádel</span></a>
+    <div class="nav-links">
+        <a href="pistas.html">Pistas</a>
+        <a href="reservas.html">Mis reservas</a>
+        <a href="login.html" class="btn btn-outline">Entrar</a>
+    </div>
+</nav>
+
+<main class="page">
+    <div class="container">
+
+        <div class="page-header">
+            <h1>Mis Reservas</h1>
+            <p>Consulta, filtra y gestiona tus partidas programadas.</p>
         </div>
+
+        <div class="filter-bar">
+            <div class="form-group">
+                <label>Desde</label>
+                <input type="date" id="filterFrom">
+            </div>
+            <div class="form-group">
+                <label>Hasta</label>
+                <input type="date" id="filterTo">
+            </div>
+            <button class="btn btn-primary" onclick="cargarReservas()">Filtrar Reservas</button>
+        </div>
+
+        <div class="card">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Pista</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="tablaReservas">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display:none;">
+                <div class="empty-icon">🎾</div>
+                <h3>No se han encontrado reservas</h3>
+                <p>Prueba con otras fechas o reserva una pista nueva.</p>
+                <a href="pistas.html" class="btn btn-primary btn-sm" style="margin-top:15px;">Ir a Pistas</a>
+            </div>
+        </div>
+
     </div>
 </main>
 
 <script>
+    const API_BASE = "http://localhost:8080/pistaPadel";
+
     async function cargarReservas() {
       const authHeader = localStorage.getItem("authHeader");
-      if (!authHeader) return window.location.href = "login.html";
+      if (!authHeader) {
+        window.location.href = "login.html";
+        return;
+      }
 
-      const resp = await fetch("http://localhost:8080/pistaPadel/reservations", {
-        headers: { "Authorization": authHeader }
-      });
+      // Parámetros de filtro según la API
+      const from = document.getElementById('filterFrom').value;
+      const to = document.getElementById('filterTo').value;
+      let url = `${API_BASE}/reservations`;
+      if (from && to) url += `?from=${from}&to=${to}`;
 
-      const reservas = await resp.json();
-      const tbody = document.getElementById("tablaReservas");
-      tbody.innerHTML = "";
+      try {
+        const resp = await fetch(url, {
+          headers: { "Authorization": authHeader }
+        });
 
-      reservas.forEach(res => {
-        tbody.innerHTML += `
-          <tr>
-            <td>${res.fechaReserva}</td>
-            <td>${res.horaInicio}</td>
-            <td>Pista ${res.idPista}</td>
-            <td><span class="badge ${res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled'}">${res.estado}</span></td>
-            <td>
-              ${res.estado === 'ACTIVA' ? `<button class="btn btn-sm btn-danger" onclick="cancelar('${res.idReserva}')">Cancelar</button>` : '---'}
-            </td>
-          </tr>`;
-      });
+        const reservas = await resp.json();
+        const tbody = document.getElementById("tablaReservas");
+        const emptyState = document.getElementById("emptyState");
+
+        if (!reservas || reservas.length === 0) {
+          emptyState.style.display = "block";
+          tbody.parentElement.parentElement.style.display = "none";
+          return;
+        }
+
+        emptyState.style.display = "none";
+        tbody.parentElement.parentElement.style.display = "table";
+        tbody.innerHTML = "";
+
+        reservas.forEach(res => {
+          // Lógica de estados exigida
+          const statusClass = res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled';
+
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>${res.fechaReserva}</strong></td>
+              <td>${res.horaInicio}</td>
+              <td>Pista ${res.idPista}</td>
+              <td><span class="badge ${statusClass}">${res.estado}</span></td>
+              <td>
+                ${res.estado === 'ACTIVA' ? `
+                  <button class="btn btn-small btn-outline" onclick="editar('${res.idReserva}')">Editar</button>
+                  <button class="btn btn-small btn-danger" onclick="cancelar('${res.idReserva}')">Cancelar</button>
+                ` : '<span class="muted">Sin acciones</span>'}
+              </td>
+            </tr>`;
+        });
+      } catch (err) {
+        console.error("Error al cargar reservas:", err);
+      }
     }
 
-    async function cancelar(id) {
-      if (!confirm("¿Cancelar reserva?")) return;
+    // Caso de uso: Reprogramar/Cambiar reserva
+    async function editar(id) {
+      const nuevaHora = prompt("Introduce la nueva hora de inicio (ej: 18:00):");
+      if (!nuevaHora) return;
+
       const authHeader = localStorage.getItem("authHeader");
-      const resp = await fetch(`http://localhost:8080/pistaPadel/reservations/${id}`, {
+      const resp = await fetch(`${API_BASE}/reservations/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": authHeader
+        },
+        body: JSON.stringify({ horaInicio: nuevaHora })
+      });
+
+      if (resp.ok) {
+        alert("Reserva actualizada");
+        cargarReservas();
+      } else {
+        alert("Error al editar: El slot puede estar ocupado");
+      }
+    }
+
+    // Caso de uso: Cancelar reserva
+    async function cancelar(id) {
+      if (!confirm("¿Seguro que quieres cancelar esta partida?")) return;
+
+      const authHeader = localStorage.getItem("authHeader");
+      const resp = await fetch(`${API_BASE}/reservations/${id}`, {
         method: "DELETE",
         headers: { "Authorization": authHeader }
       });
-      if (resp.ok) cargarReservas();
+
+      if (resp.ok) {
+        cargarReservas();
+      } else {
+        alert("No se pudo cancelar (409 Conflict si no cumple la política) [cite: 182]");
+      }
     }
 
     cargarReservas();
 </script>
+</body>
+</html>
