@@ -12,8 +12,8 @@
 <nav class="navbar">
     <a href="index.html" class="nav-logo">Pista<span>Pádel</span></a>
     <div class="nav-links">
-        <a href="pistas.html">Pistas</a>
-        <a href="reservas.html">Mis reservas</a>
+        <a href="courts.html">Pistas</a>
+        <a href="reservations.html">Mis reservas</a>
         <a href="login.html" class="btn btn-outline">Entrar</a>
     </div>
 </nav>
@@ -59,7 +59,7 @@
                 <div class="empty-icon">🎾</div>
                 <h3>No se han encontrado reservas</h3>
                 <p>Prueba con otras fechas o reserva una pista nueva.</p>
-                <a href="pistas.html" class="btn btn-primary btn-sm" style="margin-top:15px;">Ir a Pistas</a>
+                <a href="courts.html" class="btn btn-primary btn-sm" style="margin-top:15px;">Ir a Pistas</a>
             </div>
         </div>
 
@@ -76,11 +76,13 @@
         return;
       }
 
-      // Parámetros de filtro según la API
       const from = document.getElementById('filterFrom').value;
       const to = document.getElementById('filterTo').value;
       let url = `${API_BASE}/reservations`;
-      if (from && to) url += `?from=${from}&to=${to}`;
+
+      if (from && to) {
+        url += `?from=${from}&to=${to}`; [cite: 170]
+      }
 
       try {
         const resp = await fetch(url, {
@@ -102,8 +104,7 @@
         tbody.innerHTML = "";
 
         reservas.forEach(res => {
-          // Lógica de estados exigida
-          const statusClass = res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled';
+          const statusClass = res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled'; [cite: 275]
 
           tbody.innerHTML += `
             <tr>
@@ -124,14 +125,13 @@
       }
     }
 
-    // Caso de uso: Reprogramar/Cambiar reserva
     async function editar(id) {
       const nuevaHora = prompt("Introduce la nueva hora de inicio (ej: 18:00):");
       if (!nuevaHora) return;
 
       const authHeader = localStorage.getItem("authHeader");
       const resp = await fetch(`${API_BASE}/reservations/${id}`, {
-        method: "PATCH",
+        method: "PATCH", [cite: 170]
         headers: {
           "Content-Type": "application/json",
           "Authorization": authHeader
@@ -143,24 +143,23 @@
         alert("Reserva actualizada");
         cargarReservas();
       } else {
-        alert("Error al editar: El slot puede estar ocupado");
+        alert("Error al editar: El slot puede estar ocupado ");
       }
     }
 
-    // Caso de uso: Cancelar reserva
     async function cancelar(id) {
       if (!confirm("¿Seguro que quieres cancelar esta partida?")) return;
 
       const authHeader = localStorage.getItem("authHeader");
       const resp = await fetch(`${API_BASE}/reservations/${id}`, {
-        method: "DELETE",
+        method: "DELETE", [cite: 170]
         headers: { "Authorization": authHeader }
       });
 
       if (resp.ok) {
         cargarReservas();
       } else {
-        alert("No se pudo cancelar (409 Conflict si no cumple la política) [cite: 182]");
+        alert("No se pudo cancelar (409 Conflict si no cumple la política) [cite: 170, 182]");
       }
     }
 
