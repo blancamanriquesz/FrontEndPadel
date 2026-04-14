@@ -1,0 +1,78 @@
+
+<main class="page">
+    <div class="page-header">
+        <h1>Pistas Disponibles</h1>
+        <p>Consulta la disponibilidad y reserva tu próxima partida.</p>
+    </div>
+
+    <div class="filter-bar">
+        <div class="form-group">
+            <label for="resDate">Seleccionar fecha</label>
+            <input type="date" id="resDate">
+        </div>
+        <button class="btn btn-primary" onclick="cargarPistas()">Consultar</button>
+    </div>
+
+    <div id="pistasGrid" class="availability-grid"></div>
+</main>
+
+<script>
+    const API_BASE = "http://localhost:8080/pistaPadel";
+    document.getElementById('resDate').valueAsDate = new Date();
+
+    async function cargarPistas() {
+      const fecha = document.getElementById('resDate').value;
+      const grid = document.getElementById('pistasGrid');
+
+      try {
+        const respPistas = await fetch(`${API_BASE}/courts`);
+        const pistas = await respPistas.json();
+        grid.innerHTML = "";
+
+        for (const pista of pistas) {
+          if (!pista.activa) continue;
+
+          const respDisp = await fetch(`${API_BASE}/courts/${pista.idPista}/availability?date=${fecha}`);
+          const disp = await respDisp.json();
+
+          grid.innerHTML += `
+            <div class="availability-card">
+              <div class="availability-card-header">
+                <span class="court-preview-name">${pista.nombre}</span>
+                <span class="badge badge-active">Activa</span>
+              </div>
+              <div class="availability-card-body">
+                <p class="muted">📍 ${pista.ubicacion}</p>
+                <div class="slots-grid">
+                  ${disp.franjasDisponibles.map(hora => `
+                    <button class="slot slot-free" onclick="reservar('${pista.idPista}', '${fecha}', '${hora}')">${hora}</button>
+                  `).join('') || '<p class="muted">Sin slots</p>'}
+                </div>
+              </div>
+              <div class="availability-card-footer">
+                <span class="court-price">${pista.precioHora}€<span>/h</span></span>
+              </div>
+            </div>`;
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function reservar(pistaId, fecha, hora) {
+      const authHeader = localStorage.getItem("authHeader");
+      if (!authHeader) { window.location.href = "login.html"; return; }
+
+      const bodyReserva = { idPista: pistaId, fechaReserva: fecha, horaInicio: hora, duracionMinutos: 60 };
+
+      const resp = await fetch(`${API_BASE}/reservations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": authHeader },
+        body: JSON.stringify(bodyReserva)
+      });
+
+      if (resp.status === 201) { alert("Reserva realizada"); cargarPistas(); }
+      else { alert("Error al reservar"); }
+    }
+
+    cargarPistas();
+</script>
+
