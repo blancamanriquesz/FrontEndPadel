@@ -1,0 +1,63 @@
+<main class="page">
+    <div class="page-header">
+        <h1>Mis Reservas</h1>
+        <p>Listado de tus partidas programadas.</p>
+    </div>
+
+    <div class="card">
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Pista</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+                <tbody id="tablaReservas"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script>
+    async function cargarReservas() {
+      const authHeader = localStorage.getItem("authHeader");
+      if (!authHeader) return window.location.href = "login.html";
+
+      const resp = await fetch("http://localhost:8080/pistaPadel/reservations", {
+        headers: { "Authorization": authHeader }
+      });
+
+      const reservas = await resp.json();
+      const tbody = document.getElementById("tablaReservas");
+      tbody.innerHTML = "";
+
+      reservas.forEach(res => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${res.fechaReserva}</td>
+            <td>${res.horaInicio}</td>
+            <td>Pista ${res.idPista}</td>
+            <td><span class="badge ${res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled'}">${res.estado}</span></td>
+            <td>
+              ${res.estado === 'ACTIVA' ? `<button class="btn btn-sm btn-danger" onclick="cancelar('${res.idReserva}')">Cancelar</button>` : '---'}
+            </td>
+          </tr>`;
+      });
+    }
+
+    async function cancelar(id) {
+      if (!confirm("¿Cancelar reserva?")) return;
+      const authHeader = localStorage.getItem("authHeader");
+      const resp = await fetch(`http://localhost:8080/pistaPadel/reservations/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": authHeader }
+      });
+      if (resp.ok) cargarReservas();
+    }
+
+    cargarReservas();
+</script>
