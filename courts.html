@@ -159,7 +159,7 @@
       `;
 
       try {
-        const respPistas = await fetch(`${API_BASE}/courts`);
+        const respPistas = await fetch(`${API_BASE}/courts?active=true`);
 
         if (!respPistas.ok) {
           throw new Error("No se pudieron cargar las pistas.");
@@ -185,11 +185,15 @@
               }
 
               const disponibilidad = await respDisp.json();
+              const franjasDisponibles = Array.isArray(disponibilidad)
+                ? disponibilidad
+                : (disponibilidad.franjasDisponibles || []);
 
-              return {
-                pista,
-                franjasDisponibles: disponibilidad.franjasDisponibles || []
-              };
+               return {
+                    pista,
+                    franjasDisponibles
+               };
+
             } catch {
               return { pista, franjasDisponibles: [] };
             }
