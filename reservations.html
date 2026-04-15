@@ -82,7 +82,7 @@
       let url = `${API_BASE}/reservations`;
 
       if (from && to) {
-        url += `?from=${from}&to=${to}`; [cite: 170]
+        url += `?from=${from}&to=${to}`;
       }
 
       try {
@@ -105,7 +105,7 @@
         tbody.innerHTML = "";
 
         reservas.forEach(res => {
-          const statusClass = res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled'; [cite: 275]
+          const statusClass = res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled'; 
 
           tbody.innerHTML += `
             <tr>
@@ -132,7 +132,7 @@
 
       const authHeader = localStorage.getItem("authHeader");
       const resp = await fetch(`${API_BASE}/reservations/${id}`, {
-        method: "PATCH", [cite: 170]
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "Authorization": authHeader
@@ -153,14 +153,14 @@
 
       const authHeader = localStorage.getItem("authHeader");
       const resp = await fetch(`${API_BASE}/reservations/${id}`, {
-        method: "DELETE", [cite: 170]
+        method: "DELETE",
         headers: { "Authorization": authHeader }
       });
 
       if (resp.ok) {
         cargarReservas();
       } else {
-        alert("No se pudo cancelar (409 Conflict si no cumple la política) [cite: 170, 182]");
+        alert("No se pudo cancelar (409 Conflict si no cumple la política)");
       }
     }
 

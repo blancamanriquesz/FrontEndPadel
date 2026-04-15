@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login | PistaPadel</title>
+  <title>Login | PistaPádel</title>
   <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <header class="navbar">
-    <div class="logo">PistaPadel</div>
-    <nav>
-      <a href="index.html">Inicio</a>
+
+  <nav class="navbar">
+    <a href="index.html" class="nav-logo">Pista<span>Pádel</span></a>
+    <div class="nav-links">
       <a href="courts.html">Pistas</a>
-    </nav>
-  </header>
+      <a href="reservations.html">Mis reservas</a>
+    </div>
+  </nav>
 
   <main class="page">
     <section class="card auth-card">
@@ -27,7 +29,6 @@
 
       <div id="messageBox" class="message" style="display:none;"></div>
 
-      <!-- LOGIN -->
       <form id="loginForm" class="form-section">
         <div class="form-group">
           <label for="loginEmail">Email</label>
@@ -42,7 +43,6 @@
         <button type="submit" class="btn btn-primary">Entrar</button>
       </form>
 
-      <!-- REGISTER -->
       <form id="registerForm" class="form-section" style="display:none;">
         <div class="form-group">
           <label for="registerNombre">Nombre</label>
@@ -70,8 +70,6 @@
   </main>
 
   <script>
-    const API_BASE = "http://localhost:8080/pistaPadel";
-
     const tabLogin = document.getElementById("tabLogin");
     const tabRegister = document.getElementById("tabRegister");
     const loginForm = document.getElementById("loginForm");
@@ -90,121 +88,75 @@
       messageBox.className = "message";
     }
 
-    function getBasicAuth(email, password) {
-      return "Basic " + btoa(`${email}:${password}`);
-    }
-
-    function switchToLogin() {
+    function mostrarLogin() {
       tabLogin.classList.add("active");
       tabRegister.classList.remove("active");
-      loginForm.style.display = "block";
+      loginForm.style.display = "flex";
       registerForm.style.display = "none";
       hideMessage();
     }
 
-    function switchToRegister() {
+    function mostrarRegistro() {
       tabRegister.classList.add("active");
       tabLogin.classList.remove("active");
-      registerForm.style.display = "block";
+      registerForm.style.display = "flex";
       loginForm.style.display = "none";
       hideMessage();
     }
 
-    tabLogin.addEventListener("click", switchToLogin);
-    tabRegister.addEventListener("click", switchToRegister);
+    tabLogin.addEventListener("click", mostrarLogin);
+    tabRegister.addEventListener("click", mostrarRegistro);
 
-    // REGISTRO
-    registerForm.addEventListener("submit", async (e) => {
+    registerForm.addEventListener("submit", function(e) {
       e.preventDefault();
-      hideMessage();
 
-      const body = {
-        nombre: document.getElementById("registerNombre").value.trim(),
-        apellidos: document.getElementById("registerApellidos").value.trim(),
-        email: document.getElementById("registerEmail").value.trim(),
-        password: document.getElementById("registerPassword").value
+      const nombre = document.getElementById("registerNombre").value.trim();
+      const apellidos = document.getElementById("registerApellidos").value.trim();
+      const email = document.getElementById("registerEmail").value.trim();
+      const password = document.getElementById("registerPassword").value;
+
+      if (!nombre || !apellidos || !email || !password) {
+        showMessage("Rellena todos los campos.", "error");
+        return;
+      }
+
+      const usuario = {
+        nombre,
+        apellidos,
+        email,
+        password,
+        rol: "USER"
       };
 
-      try {
-        const response = await fetch(`${API_BASE}/auth/register`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(body)
-        });
+      localStorage.setItem("usuarioRegistrado", JSON.stringify(usuario));
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || "Error al registrarse");
-        }
-
-        showMessage("Usuario registrado correctamente. Ahora inicia sesión.", "success");
-        registerForm.reset();
-        switchToLogin();
-
-      } catch (error) {
-        showMessage(error.message, "error");
-      }
+      showMessage("Registro completado. Ahora ya puedes iniciar sesión.", "success");
+      registerForm.reset();
+      mostrarLogin();
     });
 
-    // LOGIN
-    loginForm.addEventListener("submit", async (e) => {
+    loginForm.addEventListener("submit", function(e) {
       e.preventDefault();
-      hideMessage();
 
       const email = document.getElementById("loginEmail").value.trim();
       const password = document.getElementById("loginPassword").value;
-      const authHeader = getBasicAuth(email, password);
 
-      try {
-        // 1. Validar credenciales con /auth/login
-        const loginResponse = await fetch(`${API_BASE}/auth/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": authHeader
-          },
-          body: JSON.stringify({ email, password })
-        });
+      const usuarioGuardado = JSON.parse(localStorage.getItem("usuarioRegistrado"));
 
-        if (!loginResponse.ok) {
-          const errorText = await loginResponse.text();
-          throw new Error(errorText || "Credenciales incorrectas");
-        }
+      if (!usuarioGuardado) {
+        showMessage("Primero tienes que registrarte.", "error");
+        return;
+      }
 
-        // 2. Obtener el usuario real con /auth/me
-        const meResponse = await fetch(`${API_BASE}/auth/me`, {
-          method: "GET",
-          headers: {
-            "Authorization": authHeader
-          }
-        });
-
-        if (!meResponse.ok) {
-          throw new Error("No se pudo recuperar el usuario autenticado");
-        }
-
-        const user = await meResponse.json();
-
-        // Guardar credenciales para futuras peticiones
-        localStorage.setItem("authEmail", email);
-        localStorage.setItem("authPassword", password);
-        localStorage.setItem("authHeader", authHeader);
-        localStorage.setItem("currentUser", JSON.stringify(user));
-
+      if (email === usuarioGuardado.email && password === usuarioGuardado.password) {
+        localStorage.setItem("currentUser", JSON.stringify(usuarioGuardado));
         showMessage("Login correcto. Redirigiendo...", "success");
 
         setTimeout(() => {
-          if (user.rol === "ADMIN") {
-            window.location.href = "admin.html";
-          } else {
-            window.location.href = "courts.html";
-          }
+          window.location.href = "courts.html";
         }, 700);
-
-      } catch (error) {
-        showMessage(error.message, "error");
+      } else {
+        showMessage("Email o contraseña incorrectos.", "error");
       }
     });
   </script>
