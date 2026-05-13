@@ -70,6 +70,8 @@
   </main>
 
   <script>
+    const API_BASE = "http://127.0.0.1:8080/pistaPadel";
+
     const tabLogin = document.getElementById("tabLogin");
     const tabRegister = document.getElementById("tabRegister");
     const loginForm = document.getElementById("loginForm");
@@ -121,18 +123,37 @@
       }
 
       const usuario = {
-        nombre,
-        apellidos,
-        email,
-        password,
-        rol: "USER"
+        nombre: nombre,
+        apellidos: apellidos,
+        email: email,
+        password: password,
+        telefono: "",
+        rol: "USER",
+        activo: true
       };
 
-      localStorage.setItem("usuarioRegistrado", JSON.stringify(usuario));
-
-      showMessage("Registro completado. Ahora ya puedes iniciar sesión.", "success");
-      registerForm.reset();
-      mostrarLogin();
+      fetch(API_BASE + "/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify(usuario)
+      })
+        .then(function(response) {
+          if (response.status === 201) {
+            showMessage("Registro completado. Ahora ya puedes iniciar sesión.", "success");
+            registerForm.reset();
+            mostrarLogin();
+          } else if (response.status === 409) {
+            showMessage("Ese email ya está registrado.", "error");
+          } else {
+            showMessage("No se ha podido registrar el usuario.", "error");
+          }
+        })
+        .catch(function() {
+          showMessage("No se puede conectar con el servidor.", "error");
+        });
     });
 
     loginForm.addEventListener("submit", function(e) {
@@ -141,23 +162,38 @@
       const email = document.getElementById("loginEmail").value.trim();
       const password = document.getElementById("loginPassword").value;
 
-      const usuarioGuardado = JSON.parse(localStorage.getItem("usuarioRegistrado"));
+      const datos = {
+        email: email,
+        password: password
+      };
 
-      if (!usuarioGuardado) {
-        showMessage("Primero tienes que registrarte.", "error");
-        return;
-      }
+      fetch(API_BASE + "/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify(datos)
+      })
+        .then(function(response) {
+          console.log("LOGIN STATUS:", response.status);
 
-      if (email === usuarioGuardado.email && password === usuarioGuardado.password) {
-        localStorage.setItem("currentUser", JSON.stringify(usuarioGuardado));
-        showMessage("Login correcto. Redirigiendo...", "success");
+          if (response.status === 200 || response.status === 201) {
+            showMessage("Login correcto. Redirigiendo...", "success");
 
-        setTimeout(() => {
-          window.location.href = "courts.html";
-        }, 700);
-      } else {
-        showMessage("Email o contraseña incorrectos.", "error");
-      }
+            setTimeout(function() {
+              window.location.href = "courts.html";
+            }, 700);
+          } else if (response.status === 401) {
+            showMessage("Email o contraseña incorrectos.", "error");
+          } else {
+            showMessage("Error en login. Código: " + response.status, "error");
+          }
+        })
+        .catch(function(error) {
+          console.log("ERROR FETCH LOGIN:", error);
+          showMessage("No se puede conectar con el servidor.", "error");
+        });
     });
   </script>
 </body>

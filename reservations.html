@@ -68,103 +68,166 @@
 </main>
 
 <script>
-    const API_BASE = "http://localhost:8080/pistaPadel";
+  const API_BASE = "http://127.0.0.1:8080/pistaPadel";
 
-    async function cargarReservas() {
-      const authHeader = localStorage.getItem("authHeader");
-      if (!authHeader) {
+  async function cargarReservas() {
+
+    const from = document.getElementById("filterFrom").value;
+    const to = document.getElementById("filterTo").value;
+
+    let url = API_BASE + "/reservations";
+
+    const params = [];
+
+    if (from) {
+      params.push("from=" + from);
+    }
+
+    if (to) {
+      params.push("to=" + to);
+    }
+
+    if (params.length > 0) {
+      url += "?" + params.join("&");
+    }
+
+    try {
+      const resp = await fetch(url, {
+        method: "GET",
+        credentials: "include"
+      });
+
+      if (resp.status === 401) {
+        localStorage.removeItem("currentUser");
         window.location.href = "login.html";
         return;
       }
 
-      const from = document.getElementById('filterFrom').value;
-      const to = document.getElementById('filterTo').value;
-      let url = `${API_BASE}/reservations`;
-
-      if (from && to) {
-        url += `?from=${from}&to=${to}`;
+      if (!resp.ok) {
+        alert("No se pudieron cargar las reservas.");
+        return;
       }
 
-      try {
-        const resp = await fetch(url, {
-          headers: { "Authorization": authHeader }
-        });
+      const reservas = await resp.json();
 
-        const reservas = await resp.json();
-        const tbody = document.getElementById("tablaReservas");
-        const emptyState = document.getElementById("emptyState");
+      const tbody = document.getElementById("tablaReservas");
+      const emptyState = document.getElementById("emptyState");
+      const tableWrapper = document.querySelector(".table-wrapper");
 
-        if (!reservas || reservas.length === 0) {
-          emptyState.style.display = "block";
-          tbody.parentElement.parentElement.style.display = "none";
-          return;
-        }
+      tbody.innerHTML = "";
 
-        emptyState.style.display = "none";
-        tbody.parentElement.parentElement.style.display = "table";
-        tbody.innerHTML = "";
-
-        reservas.forEach(res => {
-          const statusClass = res.estado === 'ACTIVA' ? 'badge-active' : 'badge-cancelled'; 
-
-          tbody.innerHTML += `
-            <tr>
-              <td><strong>${res.fechaReserva}</strong></td>
-              <td>${res.horaInicio}</td>
-              <td>Pista ${res.idPista}</td>
-              <td><span class="badge ${statusClass}">${res.estado}</span></td>
-              <td>
-                ${res.estado === 'ACTIVA' ? `
-                  <button class="btn btn-small btn-outline" onclick="editar('${res.idReserva}')">Editar</button>
-                  <button class="btn btn-small btn-danger" onclick="cancelar('${res.idReserva}')">Cancelar</button>
-                ` : '<span class="muted">Sin acciones</span>'}
-              </td>
-            </tr>`;
-        });
-      } catch (err) {
-        console.error("Error al cargar reservas:", err);
+      if (!reservas || reservas.length === 0) {
+        emptyState.style.display = "block";
+        tableWrapper.style.display = "none";
+        return;
       }
+
+      emptyState.style.display = "none";
+      tableWrapper.style.display = "block";
+
+      reservas.forEach(function(res) {
+        const estado = res.estado || "ACTIVA";
+        const statusClass = estado === "ACTIVA" ? "badge-active" : "badge-cancelled";
+        const horaInicio = String(res.horaInicio).substring(0, 5);
+        const horaFin = String(res.horaFin).substring(0, 5);
+
+        tbody.innerHTML += `
+          <tr>
+            <td><strong>${res.fechaReserva}</strong></td>
+            <td>${horaInicio} - ${horaFin}</td>
+            <td>Pista ${res.idPista}</td>
+            <td><span class="badge ${statusClass}">${estado}</span></td>
+            <td>
+              ${estado === "ACTIVA" ? `
+                <button class="btn btn-small btn-outline" onclick="editar('${res.idReserva}')">Editar</button>
+                <button class="btn btn-small btn-danger" onclick="cancelar('${res.idReserva}')">Cancelar</button>
+              ` : `<span class="muted">Sin acciones</span>`}
+            </td>
+          </tr>
+        `;
+      });
+
+    } catch (err) {
+      console.error("Error al cargar reservas:", err);
+      alert("No se puede conectar con el servidor.");
+    }
+  }
+
+  async function editar(id) {
+    const nuevaHora = prompt("Introduce la nueva hora de inicio (ej: 18:00):");
+
+    if (!nuevaHora) {
+      return;
     }
 
-    async function editar(id) {
-      const nuevaHora = prompt("Introduce la nueva hora de inicio (ej: 18:00):");
-      if (!nuevaHora) return;
+    const body = {
+      horaInicio: nuevaHora,
+      duracionMinutos: 60
+    };
 
-      const authHeader = localStorage.getItem("authHeader");
-      const resp = await fetch(`${API_BASE}/reservations/${id}`, {
+    try {
+      const resp = await fetch(API_BASE + "/reservations/" + id, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": authHeader
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ horaInicio: nuevaHora })
+        credentials: "include",
+        body: JSON.stringify(body)
       });
+
+      if (resp.status === 401) {
+        localStorage.removeItem("currentUser");
+        window.location.href = "login.html";
+        return;
+      }
 
       if (resp.ok) {
         alert("Reserva actualizada");
         cargarReservas();
+      } else if (resp.status === 409) {
+        alert("Ese horario está ocupado o la reserva no se puede modificar.");
       } else {
-        alert("Error al editar: El slot puede estar ocupado ");
+        alert("Error al editar la reserva.");
       }
+
+    } catch (err) {
+      console.error(err);
+      alert("No se puede conectar con el servidor.");
+    }
+  }
+
+  async function cancelar(id) {
+    if (!confirm("¿Seguro que quieres cancelar esta partida?")) {
+      return;
     }
 
-    async function cancelar(id) {
-      if (!confirm("¿Seguro que quieres cancelar esta partida?")) return;
-
-      const authHeader = localStorage.getItem("authHeader");
-      const resp = await fetch(`${API_BASE}/reservations/${id}`, {
+    try {
+      const resp = await fetch(API_BASE + "/reservations/" + id, {
         method: "DELETE",
-        headers: { "Authorization": authHeader }
+        credentials: "include"
       });
 
-      if (resp.ok) {
-        cargarReservas();
-      } else {
-        alert("No se pudo cancelar (409 Conflict si no cumple la política)");
+      if (resp.status === 401) {
+        localStorage.removeItem("currentUser");
+        window.location.href = "login.html";
+        return;
       }
-    }
 
-    cargarReservas();
+      if (resp.ok || resp.status === 204) {
+        cargarReservas();
+      } else if (resp.status === 409) {
+        alert("La reserva ya estaba cancelada.");
+      } else {
+        alert("No se pudo cancelar la reserva.");
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("No se puede conectar con el servidor.");
+    }
+  }
+
+  cargarReservas();
 </script>
 </body>
 </html>
